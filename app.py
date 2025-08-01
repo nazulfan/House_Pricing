@@ -312,4 +312,5 @@ if raw_df is not None and model_pipeline is not None:
 #             st.info("Isi formulir di kiri untuk mendapatkan prediksi.")
 # else:
 #     st.error("Gagal memuat file data.")
+
     
