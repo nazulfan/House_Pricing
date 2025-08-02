@@ -52,8 +52,14 @@ def train_and_get_model(model_path, data_path):
             df_final['Harga Sewa'] = pd.to_numeric(df_final['Harga Sewa'], errors='coerce')
             df_final.dropna(subset=['Harga Sewa'], inplace=True)
             quantile_99 = df_final['Harga Sewa'].quantile(0.99)
-            df_final = df_final[df_final['Harga Sewa'] < quantile_99].copy() # Ditambahkan .copy()
+            df_final = df_final[df_final['Harga Sewa'] < quantile_99].copy()
             df_final['Harga Sewa Log'] = np.log1p(df_final['Harga Sewa'])
+            
+            # --- PERBAIKAN: Buang kolom yang tidak ada di input form ---
+            # Ini akan memastikan model dilatih pada fitur yang sama dengan yang diinput pengguna
+            if 'Kamar Tidur Pembantu' in df_final.columns:
+                df_final.drop(columns=['Kamar Tidur Pembantu', 'Kamar Mandi Pembantu'], inplace=True)
+            # -----------------------------------------------------------
 
             # 2. Pisahkan Fitur (X) dan Target (y)
             X = df_final.drop(columns=['Harga Sewa', 'Harga Sewa Log'])
@@ -158,6 +164,7 @@ elif submit_button:
         st.info("Prediksi ini dibuat menggunakan model LightGBM.", icon="💡")
 else:
     st.info("Silakan isi formulir di sidebar dan klik tombol prediksi untuk melihat hasilnya.")
+
 
 
 
@@ -504,6 +511,7 @@ else:
 #     st.error("Gagal memuat file data.")
 
     
+
 
 
 
