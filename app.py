@@ -55,18 +55,9 @@ def train_and_get_model(model_path, data_path):
             df_final = df_final[df_final['Harga Sewa'] < quantile_99].copy()
             df_final['Harga Sewa Log'] = np.log1p(df_final['Harga Sewa'])
             
-            # --- PERBAIKAN: Definisikan fitur yang akan digunakan secara eksplisit ---
-            # Ini adalah daftar semua kolom yang ada di formulir input Anda.
-            features_from_form = [
-                'Kamar Tidur', 'Kamar Mandi', 'Luas Tanah', 'Luas Bangunan',
-                'Jumlah Lantai', 'Carport', 'Garasi', 'Daya Listrik',
-                'Sertifikat', 'Kondisi Properti', 'Kota'
-            ]
-            # ----------------------------------------------------------------------
-
             # 2. Pisahkan Fitur (X) dan Target (y)
-            # Gunakan hanya fitur dari form untuk melatih model
-            X = df_final[features_from_form]
+            # Kita tidak membuang 'Kamar Tidur Pembantu' dll. lagi
+            X = df_final.drop(columns=['Harga Sewa', 'Harga Sewa Log'])
             y = df_final['Harga Sewa Log']
 
             # 3. Buat Pipeline Preprocessing
@@ -109,7 +100,7 @@ def train_and_get_model(model_path, data_path):
 st.title("🏠 Prediksi Harga Rumah (LightGBM)")
 st.markdown("Aplikasi ini menggunakan model LightGBM untuk estimasi harga sewa.")
 
-DATA_PATH = 'data_fix.csv'
+DATA_PATH = 'data_final.csv'
 MODEL_PATH = 'model_prediksi_final_fix.joblib'
 
 # Panggil fungsi utama untuk mendapatkan model (melatih atau memuat)
@@ -133,6 +124,12 @@ with st.sidebar:
             kota = st.selectbox("Kota", options=kota_options)
             kamar_tidur = st.slider("Kamar Tidur", 1, 10, 3)
             kamar_mandi = st.slider("Kamar Mandi", 1, 10, 2)
+            
+            # --- PERUBAHAN: Menambahkan input untuk kamar pembantu ---
+            kamar_tidur_pembantu = st.slider("Kamar Tidur Pembantu", 0, 5, 0)
+            kamar_mandi_pembantu = st.slider("Kamar Mandi Pembantu", 0, 5, 0)
+            # ---------------------------------------------------------
+
             luas_tanah = st.number_input("Luas Tanah (m²)", min_value=30, value=120)
             luas_bangunan = st.number_input("Luas Bangunan (m²)", min_value=30, value=100)
             jumlah_lantai = st.slider("Jumlah Lantai", 1, 5, 1)
@@ -151,14 +148,18 @@ elif submit_button:
     with st.spinner('Model sedang menganalisis...'):
         time.sleep(1)
         
+        # --- PERUBAHAN: Menambahkan kolom baru ke input_data ---
         input_data = pd.DataFrame([{
             'Kamar Tidur': kamar_tidur, 'Kamar Mandi': kamar_mandi,
             'Luas Tanah': luas_tanah, 'Luas Bangunan': luas_bangunan,
             'Jumlah Lantai': jumlah_lantai, 'Carport': carport,
             'Garasi': garasi, 'Daya Listrik': daya_listrik,
             'Sertifikat': sertifikat, 'Kondisi Properti': kondisi_properti,
-            'Kota': kota
+            'Kota': kota,
+            'Kamar Tidur Pembantu': kamar_tidur_pembantu,
+            'Kamar Mandi Pembantu': kamar_mandi_pembantu
         }])
+        # ----------------------------------------------------
 
         prediction_log = model_pipeline.predict(input_data)
         prediction_final = np.expm1(prediction_log[0])
@@ -516,6 +517,7 @@ else:
 #     st.error("Gagal memuat file data.")
 
     
+
 
 
 
