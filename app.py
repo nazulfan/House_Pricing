@@ -34,8 +34,8 @@ def load_model(model_path):
 
 # --- UI Aplikasi ---
 
-st.title("🏠 Prediksi Harga Rumah (LightGBM)")
-st.markdown("Aplikasi ini menggunakan model LightGBM untuk estimasi harga sewa.")
+st.title("🏠 House Pricing Prediction App")
+st.markdown("Source by Rumah123.com | Proyek Machine Learning")
 
 # Path ke file
 DATA_PATH = 'database_sewa_rumah_fix - database_sewa_rumahfix.csv.csv'
@@ -309,6 +309,7 @@ else:
 #     st.error("Gagal memuat file data.")
 
     
+
 
 
 
