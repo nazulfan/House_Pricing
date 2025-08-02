@@ -55,14 +55,18 @@ def train_and_get_model(model_path, data_path):
             df_final = df_final[df_final['Harga Sewa'] < quantile_99].copy()
             df_final['Harga Sewa Log'] = np.log1p(df_final['Harga Sewa'])
             
-            # --- PERBAIKAN: Buang kolom yang tidak ada di input form ---
-            # Ini akan memastikan model dilatih pada fitur yang sama dengan yang diinput pengguna
-            if 'Kamar Tidur Pembantu' in df_final.columns:
-                df_final.drop(columns=['Kamar Tidur Pembantu', 'Kamar Mandi Pembantu'], inplace=True)
-            # -----------------------------------------------------------
+            # --- PERBAIKAN: Definisikan fitur yang akan digunakan secara eksplisit ---
+            # Ini adalah daftar semua kolom yang ada di formulir input Anda.
+            features_from_form = [
+                'Kamar Tidur', 'Kamar Mandi', 'Luas Tanah', 'Luas Bangunan',
+                'Jumlah Lantai', 'Carport', 'Garasi', 'Daya Listrik',
+                'Sertifikat', 'Kondisi Properti', 'Kota'
+            ]
+            # ----------------------------------------------------------------------
 
             # 2. Pisahkan Fitur (X) dan Target (y)
-            X = df_final.drop(columns=['Harga Sewa', 'Harga Sewa Log'])
+            # Gunakan hanya fitur dari form untuk melatih model
+            X = df_final[features_from_form]
             y = df_final['Harga Sewa Log']
 
             # 3. Buat Pipeline Preprocessing
@@ -105,7 +109,7 @@ def train_and_get_model(model_path, data_path):
 st.title("🏠 Prediksi Harga Rumah (LightGBM)")
 st.markdown("Aplikasi ini menggunakan model LightGBM untuk estimasi harga sewa.")
 
-DATA_PATH = 'data_fix.csv'
+DATA_PATH = 'data_final.csv'
 MODEL_PATH = 'model_prediksi_final_fix.joblib'
 
 # Panggil fungsi utama untuk mendapatkan model (melatih atau memuat)
@@ -164,6 +168,7 @@ elif submit_button:
         st.info("Prediksi ini dibuat menggunakan model LightGBM.", icon="💡")
 else:
     st.info("Silakan isi formulir di sidebar dan klik tombol prediksi untuk melihat hasilnya.")
+
 
 
 
@@ -511,6 +516,7 @@ else:
 #     st.error("Gagal memuat file data.")
 
     
+
 
 
 
