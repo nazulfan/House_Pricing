@@ -1,0 +1,315 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import joblib # Untuk memuat model
+import time
+
+# Konfigurasi halaman Streamlit
+st.set_page_config(
+    page_title="Prediksi Harga Sewa Rumah | Proyek Final",
+    page_icon="🏠",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# --- FUNGSI-FUNGSI UTAMA ---
+
+# Fungsi untuk memuat data mentah (hanya untuk opsi di UI)
+@st.cache_data
+def load_data(file_path):
+    """Memuat data mentah dari CSV."""
+    try:
+        df = pd.read_csv(file_path)
+        return df
+    except FileNotFoundError:
+        st.error(f"File data '{file_path}' tidak ditemukan.")
+        return None
+
+# Fungsi untuk memuat model yang sudah dilatih
+@st.cache_resource
+def load_model(model_path):
+    """Memuat pipeline model yang sudah dilatih dari file .joblib."""
+    try:
+        model = joblib.load(model_path)
+        return model
+    except FileNotFoundError:
+        st.error(f"File model '{model_path}' tidak ditemukan. Pastikan sudah disimpan di folder yang sama.")
+        return None
+
+# --- UI STREAMLIT ---
+
+
+st.title("🏠 House Pricing Prediction App")
+st.markdown("Source by Rumah123.com | Proyek Machine Learning")
+
+DATA_PATH = 'database_sewa_rumah_fix - database_sewa_rumahfix.csv.csv'
+MODEL_PATH = 'model_prediksi_sewa_final.joblib'
+
+# Muat data dan model
+raw_df = load_data(DATA_PATH)
+model_pipeline = load_model(MODEL_PATH)
+
+# Hanya lanjutkan jika data dan model berhasil dimuat
+if raw_df is not None and model_pipeline is not None:
+
+    st.sidebar.header("Masukkan Fitur Properti")
+    with st.sidebar.form(key='prediction_form'):
+        st.write("Isi detail properti untuk mendapatkan estimasi harga sewa tahunan.")
+
+        # Ambil opsi dari data mentah untuk dropdown
+        kota_options = sorted(raw_df['Kota'].dropna().unique())
+        sertifikat_options = sorted(raw_df['Sertifikat'].dropna().unique())
+        kondisi_options = sorted(raw_df['Kondisi Properti'].dropna().unique())
+
+        # Input dari pengguna
+        kota = st.selectbox("Kota", options=kota_options)
+        kamar_tidur = st.slider("Kamar Tidur", 1, 10, 3)
+        kamar_mandi = st.slider("Kamar Mandi", 1, 10, 2)
+        luas_tanah = st.number_input("Luas Tanah (m²)", min_value=30, value=120)
+        luas_bangunan = st.number_input("Luas Bangunan (m²)", min_value=30, value=100)
+        jumlah_lantai = st.slider("Jumlah Lantai", 1, 5, 1)
+        carport = st.slider("Carport (mobil)", 0, 10, 1)
+        garasi = st.slider("Garasi (mobil)", 0, 10, 0)
+        daya_listrik = st.number_input("Daya Listrik (VA)", min_value=900, value=2200, step=100)
+        sertifikat = st.selectbox("Sertifikat", options=sertifikat_options)
+        kondisi_properti = st.selectbox("Kondisi Properti", options=kondisi_options)
+
+        submit_button = st.form_submit_button(label='✨ Prediksi Harga!')
+
+    # --- Tampilan Hasil ---
+    st.subheader("Hasil Prediksi Anda")
+    if submit_button:
+        with st.spinner('Menghitung estimasi...'):
+            # Buat DataFrame dari input pengguna.
+            # Nama kolom HARUS SAMA PERSIS dengan yang digunakan saat melatih model.
+            input_data = pd.DataFrame([{
+                'Kamar Tidur': kamar_tidur,
+                'Kamar Mandi': kamar_mandi,
+                'Luas Tanah': luas_tanah,
+                'Luas Bangunan': luas_bangunan,
+                'Jumlah Lantai': jumlah_lantai,
+                'Carport': carport,
+                'Garasi': garasi,
+                'Daya Listrik': daya_listrik,
+                'Sertifikat': sertifikat,
+                'Kondisi Properti': kondisi_properti,
+                'Kota': kota
+                # Kolom yang tidak ada di input akan diisi NaN dan di-handle oleh pipeline
+            }])
+
+            # Gunakan pipeline untuk memprediksi. Pipeline akan mengurus semua preprocessing.
+            prediction_log = model_pipeline.predict(input_data)
+
+            # Kembalikan prediksi dari skala log ke skala Rupiah asli
+            prediction_final = np.expm1(prediction_log)[0]
+
+            st.success("Estimasi Harga Sewa Tahunan:")
+            st.markdown(f"<h2 style='text-align: left; color: #28a745;'>Rp {prediction_final:,.0f}</h2>", unsafe_allow_html=True)
+            st.info("Catatan: Harga ini adalah estimasi berdasarkan data historis dan dapat bervariasi.")
+    else:
+        st.info("Silakan isi formulir di sebelah kiri untuk melihat hasil prediksi.")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# import streamlit as st
+# import pandas as pd
+# import numpy as np
+# from sklearn.model_selection import train_test_split
+# from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+# from sklearn.linear_model import Ridge
+# from sklearn.metrics import r2_score
+# import time
+
+# # Konfigurasi halaman Streamlit
+# st.set_page_config(
+#     page_title="Prediksi Harga Sewa Rumah | Proyek ML",
+#     page_icon="🏠",
+#     layout="wide",
+#     initial_sidebar_state="expanded"
+# )
+
+# # --- FUNGSI-FUNGSI UTAMA ---
+
+# @st.cache_data
+# def load_data(file_path):
+#     try:
+#         df = pd.read_csv(file_path)
+#         return df
+#     except FileNotFoundError:
+#         st.error(f"File tidak ditemukan di path: {file_path}")
+#         return None
+
+# @st.cache_data
+# def preprocess_data(_df):
+#     df = _df.copy()
+
+#     # 1. Rename columns
+#     df.rename(columns={
+#         'Harga Sewa': 'harga_sewa', 'Kamar Tidur': 'kamar_tidur', 'Kamar Mandi': 'kamar_mandi',
+#         'Luas Tanah': 'luas_tanah', 'Luas Bangunan': 'luas_bangunan', 'Jumlah Lantai': 'jumlah_lantai',
+#         'Carport': 'carport', 'Garasi': 'garasi', 'Sertifikat': 'sertifikat',
+#         'Daya Listrik': 'daya_listrik', 'Kondisi Properti': 'kondisi_properti',
+#         'Kamar Tidur Pembantu': 'kt_pembantu', 'Kamar Mandi Pembantu': 'km_pembantu', 'Kota': 'kota'
+#     }, inplace=True)
+
+#     # 2. Clean and convert 'harga_sewa' to numeric
+#     df['harga_sewa'] = pd.to_numeric(df['harga_sewa'], errors='coerce')
+#     df.dropna(subset=['harga_sewa'], inplace=True)
+#     df = df[df['harga_sewa'] > 0]
+
+#     # 3. Impute missing values for primary features
+#     for col in ['kamar_tidur', 'kamar_mandi', 'luas_bangunan', 'jumlah_lantai']:
+#         df[col].fillna(df[col].median(), inplace=True)
+
+#     for col in ['kondisi_properti', 'sertifikat', 'daya_listrik']:
+#         if df[col].isnull().any():
+#             df[col].fillna(df[col].mode()[0], inplace=True)
+
+#     # 4. Clean 'Lainnya' values
+#     for kolom in ['sertifikat', 'kondisi_properti', 'daya_listrik']:
+#         if 'Lainnya' in df[kolom].unique():
+#             try:
+#                 modus_value = df[df[kolom] != 'Lainnya'][kolom].mode()[0]
+#                 df[kolom] = df[kolom].replace('Lainnya', modus_value)
+#             except IndexError:
+#                 pass
+
+#     # 5. Convert 'daya_listrik' to numeric
+#     df['daya_listrik'] = pd.to_numeric(df['daya_listrik'], errors='coerce')
+#     df['daya_listrik'].fillna(df['daya_listrik'].median(), inplace=True)
+    
+#     # 6. Drop irrelevant columns
+#     df.drop(['kt_pembantu', 'km_pembantu'], axis=1, inplace=True)
+
+#     # 7. Feature Engineering
+#     df['harga_sewa_log'] = np.log1p(df['harga_sewa'])
+    
+#     X = df.drop(['harga_sewa', 'harga_sewa_log'], axis=1)
+#     y = df['harga_sewa_log']
+
+#     # 8. One-Hot Encoding
+#     X = pd.get_dummies(X, columns=['kota', 'sertifikat', 'kondisi_properti'], drop_first=True)
+
+#     # =================================================================
+#     # --- Sapu Bersih Semua NaN yang Tersisa di X ---
+#     # =================================================================
+#     # Loop melalui semua kolom di X dan isi NaN yang mungkin masih ada
+#     # dengan median dari masing-masing kolom.
+#     for col in X.columns:
+#         if X[col].isnull().any():
+#             X[col].fillna(X[col].median(), inplace=True)
+#     # =================================================================
+
+#     return X, y
+
+# @st.cache_resource
+# def train_and_evaluate_models(X, y):
+#     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+#     models = {
+#         "Ridge": Ridge(random_state=42),
+#         "Random Forest": RandomForestRegressor(random_state=42, n_estimators=100),
+#         "Gradient Boosting": GradientBoostingRegressor(random_state=42, n_estimators=100)
+#     }
+#     scores = {}
+#     for name, model in models.items():
+#         model.fit(X_train, y_train)
+#         y_pred = model.predict(X_test)
+#         scores[name] = r2_score(y_test, y_pred)
+
+#     best_model_name = max(scores, key=scores.get)
+#     best_model = models[best_model_name]
+#     best_score = scores[best_model_name]
+    
+#     best_model.fit(X, y) # Train final model on all data
+    
+#     return best_model, best_model_name, best_score, scores
+
+# # --- STREAMLIT UI ---
+
+# st.title("🏠 House Pricing Prediction App")
+# st.markdown("Source by Rumah123.com | Proyek Machine Learning")
+
+# data_path = 'database_sewa_rumah_fix - database_sewa_rumahfix.csv.csv'
+# raw_df = load_data(data_path)
+
+# if raw_df is not None:
+#     X, y = preprocess_data(raw_df.copy())
+#     model, model_name, score, all_scores = train_and_evaluate_models(X, y)
+
+#     st.sidebar.header("Masukkan Fitur Properti Anda")
+#     with st.sidebar.form(key='prediction_form'):
+#         temp_df = raw_df.copy()
+        
+#         # Clean options for selectbox
+#         for col in ['Kota', 'Sertifikat', 'Kondisi Properti']:
+#             if 'Lainnya' in temp_df[col].unique():
+#                 temp_df[col] = temp_df[col].replace('Lainnya', temp_df[col].mode()[0])
+
+#         kota_options = sorted(temp_df['Kota'].dropna().unique())
+#         sertifikat_options = sorted(temp_df['Sertifikat'].dropna().unique())
+#         kondisi_options = sorted(temp_df['Kondisi Properti'].dropna().unique())
+
+#         kota = st.selectbox("Kota", options=kota_options)
+#         kamar_tidur = st.slider("Jumlah Kamar Tidur", 1, 10, 3)
+#         kamar_mandi = st.slider("Jumlah Kamar Mandi", 1, 10, 2)
+#         luas_tanah = st.number_input("Luas Tanah (m²)", min_value=30, value=120)
+#         luas_bangunan = st.number_input("Luas Bangunan (m²)", min_value=30, value=100)
+#         jumlah_lantai = st.selectbox("Jumlah Lantai", [1, 2, 3, 4, 5])
+#         carport = st.slider("Carport (mobil)", 0, 10, 1)
+#         garasi = st.slider("Garasi (mobil)", 0, 10, 0)
+#         daya_listrik = st.number_input("Daya Listrik (VA)", min_value=900, value=2200)
+#         sertifikat = st.selectbox("Jenis Sertifikat", options=sertifikat_options)
+#         kondisi = st.selectbox("Kondisi Properti", options=kondisi_options)
+        
+#         submit_button = st.form_submit_button(label='✨ Prediksi Harga!')
+
+#     # Main page layout
+#     col1, col2 = st.columns((2, 1.5))
+#     with col1:
+#         st.subheader("Analisis Model & Data")
+#         st.markdown(f"Model terbaik: **{model_name}** (Skor R²: **{score:.2f}**)")
+#         st.write("Perbandingan Skor Antar Model:")
+#         st.bar_chart(pd.Series(all_scores, name="Skor R²"))
+#         with st.expander("Lihat Data Siap Latih"):
+#             st.dataframe(X.head())
+
+#     with col2:
+#         st.subheader("Hasil Prediksi Anda")
+#         if submit_button:
+#             with st.spinner('Memprediksi...'):
+#                 input_data = pd.DataFrame([{
+#                     'kamar_tidur': kamar_tidur, 'kamar_mandi': kamar_mandi, 'luas_tanah': luas_tanah,
+#                     'luas_bangunan': luas_bangunan, 'carport': carport, 'daya_listrik': daya_listrik,
+#                     'garasi': garasi, 'jumlah_lantai': jumlah_lantai, 'kota': kota,
+#                     'sertifikat': sertifikat, 'kondisi_properti': kondisi
+#                 }])
+                
+#                 input_encoded = pd.get_dummies(input_data)
+#                 final_input = input_encoded.reindex(columns=X.columns, fill_value=0)
+
+#                 # Final check for NaNs in user input (safety net)
+#                 final_input.fillna(0, inplace=True)
+                
+#                 prediction_log = model.predict(final_input)
+#                 prediction_final = np.expm1(prediction_log)[0]
+                
+#                 st.success("Estimasi Harga Sewa Tahunan:")
+#                 st.markdown(f"<h2 style='text-align: center; color: #28a745;'>Rp {prediction_final:,.0f}</h2>", unsafe_allow_html=True)
+#         else:
+#             st.info("Isi formulir di kiri untuk mendapatkan prediksi.")
+# else:
+#     st.error("Gagal memuat file data.")
+    
