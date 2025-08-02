@@ -115,8 +115,7 @@ with st.sidebar:
         st.error(f"File data '{DATA_PATH}' tidak ditemukan.")
     else:
         with st.form(key='prediction_form'):
-            raw_df['Kota'] = raw_df['Kota'].apply(lambda x: 'Jakarta' if isinstance(x, str) and 'Jakarta' in x else x)
-            
+            # --- PERUBAHAN: Menghapus pengelompokan Jakarta ---
             kota_options = sorted(raw_df['Kota'].dropna().unique())
             sertifikat_options = sorted(raw_df['Sertifikat'].dropna().unique())
             kondisi_options = sorted(raw_df['Kondisi Properti'].dropna().unique())
@@ -183,7 +182,8 @@ else:
         if raw_df is not None:
             st.subheader("Perbandingan Harga Rata-Rata per Kota")
             
-            # Hitung harga rata-rata dan urutkan
+            # --- PERUBAHAN: Menghapus pengelompokan Jakarta untuk visualisasi ---
+            # (Tidak ada perubahan kode yang diperlukan di sini karena raw_df digunakan langsung)
             avg_price_by_city = raw_df.groupby('Kota')['Harga Sewa'].mean().sort_values(ascending=False).head(10)
             avg_price_by_city_df = avg_price_by_city.reset_index()
             avg_price_by_city_df.columns = ['Kota', 'Harga Rata-Rata']
@@ -204,6 +204,7 @@ else:
             )
             fig.update_traces(marker_color='#2563EB', textposition='outside')
             st.plotly_chart(fig, use_container_width=True)
+
 
 
 
@@ -728,6 +729,7 @@ else:
 #     st.error("Gagal memuat file data.")
 
     
+
 
 
 
