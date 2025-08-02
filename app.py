@@ -5,6 +5,7 @@ import numpy as np
 import joblib
 import os
 import time
+import plotly.express as px
 
 # Import semua yang dibutuhkan untuk training
 from sklearn.model_selection import train_test_split
@@ -18,7 +19,7 @@ import lightgbm as lgb
 st.set_page_config(
     page_title="Prediksi Harga Sewa Properti",
     page_icon="🏠",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 
@@ -56,7 +57,6 @@ def train_and_get_model(model_path, data_path):
             df_final['Harga Sewa Log'] = np.log1p(df_final['Harga Sewa'])
             
             # 2. Pisahkan Fitur (X) dan Target (y)
-            # Kita tidak membuang 'Kamar Tidur Pembantu' dll. lagi
             X = df_final.drop(columns=['Harga Sewa', 'Harga Sewa Log'])
             y = df_final['Harga Sewa Log']
 
@@ -125,10 +125,8 @@ with st.sidebar:
             kamar_tidur = st.slider("Kamar Tidur", 1, 10, 3)
             kamar_mandi = st.slider("Kamar Mandi", 1, 10, 2)
             
-            # --- PERUBAHAN: Menambahkan input untuk kamar pembantu ---
             kamar_tidur_pembantu = st.slider("Kamar Tidur Pembantu", 0, 5, 0)
             kamar_mandi_pembantu = st.slider("Kamar Mandi Pembantu", 0, 5, 0)
-            # ---------------------------------------------------------
 
             luas_tanah = st.number_input("Luas Tanah (m²)", min_value=30, value=120)
             luas_bangunan = st.number_input("Luas Bangunan (m²)", min_value=30, value=100)
@@ -144,31 +142,244 @@ with st.sidebar:
 # --- Tampilan Utama ---
 if model_pipeline is None:
     st.error(f"Gagal melatih atau memuat model. Periksa file data dan log.")
-elif submit_button:
-    with st.spinner('Model sedang menganalisis...'):
-        time.sleep(1)
-        
-        # --- PERUBAHAN: Menambahkan kolom baru ke input_data ---
-        input_data = pd.DataFrame([{
-            'Kamar Tidur': kamar_tidur, 'Kamar Mandi': kamar_mandi,
-            'Luas Tanah': luas_tanah, 'Luas Bangunan': luas_bangunan,
-            'Jumlah Lantai': jumlah_lantai, 'Carport': carport,
-            'Garasi': garasi, 'Daya Listrik': daya_listrik,
-            'Sertifikat': sertifikat, 'Kondisi Properti': kondisi_properti,
-            'Kota': kota,
-            'Kamar Tidur Pembantu': kamar_tidur_pembantu,
-            'Kamar Mandi Pembantu': kamar_mandi_pembantu
-        }])
-        # ----------------------------------------------------
-
-        prediction_log = model_pipeline.predict(input_data)
-        prediction_final = np.expm1(prediction_log[0])
-
-        st.subheader("Estimasi Harga Sewa Tahunan")
-        st.metric(label="Harga Prediksi", value=f"Rp {prediction_final:,.0f}")
-        st.info("Prediksi ini dibuat menggunakan model LightGBM.", icon="💡")
 else:
-    st.info("Silakan isi formulir di sidebar dan klik tombol prediksi untuk melihat hasilnya.")
+    col1, col2 = st.columns([1.5, 2])
+
+    with col1:
+        st.subheader("Estimasi Harga Sewa Tahunan")
+        if submit_button:
+            with st.spinner('Model sedang menganalisis...'):
+                time.sleep(1)
+                
+                input_data = pd.DataFrame([{
+                    'Kamar Tidur': kamar_tidur, 'Kamar Mandi': kamar_mandi,
+                    'Luas Tanah': luas_tanah, 'Luas Bangunan': luas_bangunan,
+                    'Jumlah Lantai': jumlah_lantai, 'Carport': carport,
+                    'Garasi': garasi, 'Daya Listrik': daya_listrik,
+                    'Sertifikat': sertifikat, 'Kondisi Properti': kondisi_properti,
+                    'Kota': kota,
+                    'Kamar Tidur Pembantu': kamar_tidur_pembantu,
+                    'Kamar Mandi Pembantu': kamar_mandi_pembantu
+                }])
+
+                prediction_log = model_pipeline.predict(input_data)
+                prediction_final = np.expm1(prediction_log[0])
+
+                st.metric(label="Harga Prediksi", value=f"Rp {prediction_final:,.0f}")
+                st.info("Prediksi ini dibuat menggunakan model LightGBM.", icon="💡")
+        else:
+            st.info("Silakan isi formulir di sidebar dan klik tombol prediksi untuk melihat hasilnya.")
+        
+        with st.container(border=True):
+            st.subheader("Tentang Model")
+            st.markdown("""
+            - **Model**: LightGBM (Gradient Boosting)
+            - **Akurasi (R²)**: ~0.70
+            - **Fitur**: 13 fitur properti
+            - **Data**: Dilatih pada ribuan data sewa properti dari berbagai kota besar di Indonesia.
+            """)
+
+    with col2:
+        if raw_df is not None:
+            st.subheader("Perbandingan Harga Rata-Rata per Kota")
+            
+            # Hitung harga rata-rata dan urutkan
+            avg_price_by_city = raw_df.groupby('Kota')['Harga Sewa'].mean().sort_values(ascending=False).head(10)
+            avg_price_by_city_df = avg_price_by_city.reset_index()
+            avg_price_by_city_df.columns = ['Kota', 'Harga Rata-Rata']
+
+            # Buat diagram batang dengan Plotly
+            fig = px.bar(
+                avg_price_by_city_df,
+                x='Harga Rata-Rata',
+                y='Kota',
+                orientation='h',
+                title='Top 10 Harga Sewa Rata-Rata per Kota',
+                labels={'Harga Rata-Rata': 'Harga Rata-Rata (Rp)', 'Kota': 'Kota'},
+                text_auto='.2s'
+            )
+            fig.update_layout(
+                yaxis={'categoryorder':'total ascending'},
+                title_x=0.5
+            )
+            fig.update_traces(marker_color='#2563EB', textposition='outside')
+            st.plotly_chart(fig, use_container_width=True)
+
+
+
+
+
+# # Versi final aplikasi
+# import streamlit as st
+# import pandas as pd
+# import numpy as np
+# import joblib
+# import os
+# import time
+
+# # Import semua yang dibutuhkan untuk training
+# from sklearn.model_selection import train_test_split
+# from sklearn.preprocessing import StandardScaler, OneHotEncoder
+# from sklearn.compose import ColumnTransformer
+# from sklearn.pipeline import Pipeline
+# from sklearn.impute import SimpleImputer
+# import lightgbm as lgb
+
+# # --- Konfigurasi Halaman ---
+# st.set_page_config(
+#     page_title="Prediksi Harga Sewa Properti",
+#     page_icon="🏠",
+#     layout="centered",
+#     initial_sidebar_state="expanded"
+# )
+
+# # --- FUNGSI-FUNGSI UTAMA ---
+
+# @st.cache_data
+# def load_data(file_path):
+#     """Memuat data mentah dari CSV."""
+#     try:
+#         df = pd.read_csv(file_path)
+#         return df
+#     except FileNotFoundError:
+#         st.error(f"File data '{file_path}' tidak ditemukan.")
+#         return None
+
+# # Fungsi ini sekarang akan melatih model JIKA BELUM ADA
+# @st.cache_resource
+# def train_and_get_model(model_path, data_path):
+#     """
+#     Memuat model jika sudah ada. Jika tidak,
+#     latih model dari awal dan simpan.
+#     """
+#     if not os.path.exists(model_path):
+#         with st.spinner(f"Model tidak ditemukan. Memulai proses pelatihan sekali jalan... (Ini mungkin butuh beberapa menit)"):
+#             # 1. Muat dan bersihkan data
+#             df_final = load_data(data_path)
+#             if df_final is None:
+#                 return None
+
+#             # Pembersihan data dasar
+#             df_final['Harga Sewa'] = pd.to_numeric(df_final['Harga Sewa'], errors='coerce')
+#             df_final.dropna(subset=['Harga Sewa'], inplace=True)
+#             quantile_99 = df_final['Harga Sewa'].quantile(0.99)
+#             df_final = df_final[df_final['Harga Sewa'] < quantile_99].copy()
+#             df_final['Harga Sewa Log'] = np.log1p(df_final['Harga Sewa'])
+            
+#             # 2. Pisahkan Fitur (X) dan Target (y)
+#             # Kita tidak membuang 'Kamar Tidur Pembantu' dll. lagi
+#             X = df_final.drop(columns=['Harga Sewa', 'Harga Sewa Log'])
+#             y = df_final['Harga Sewa Log']
+
+#             # 3. Buat Pipeline Preprocessing
+#             numeric_features = X.select_dtypes(include=np.number).columns.tolist()
+#             categorical_features = X.select_dtypes(include=['object']).columns.tolist()
+
+#             numeric_transformer = Pipeline(steps=[
+#                 ('imputer', SimpleImputer(strategy='median')),
+#                 ('scaler', StandardScaler())
+#             ])
+#             categorical_transformer = Pipeline(steps=[
+#                 ('imputer', SimpleImputer(strategy='most_frequent')),
+#                 ('onehot', OneHotEncoder(handle_unknown='ignore'))
+#             ])
+#             preprocessor = ColumnTransformer(
+#                 transformers=[
+#                     ('num', numeric_transformer, numeric_features),
+#                     ('cat', categorical_transformer, categorical_features)
+#                 ])
+
+#             # 4. Buat dan Latih Pipeline Final
+#             final_pipeline = Pipeline(steps=[
+#                 ('preprocessor', preprocessor),
+#                 ('regressor', lgb.LGBMRegressor(random_state=70))
+#             ])
+
+#             final_pipeline.fit(X, y)
+            
+#             # 5. Simpan Pipeline
+#             joblib.dump(final_pipeline, model_path)
+#             st.success("Pelatihan selesai! Model berhasil dibuat dan disimpan.")
+#             return final_pipeline
+#     else:
+#         # Jika file sudah ada, langsung muat
+#         model = joblib.load(model_path)
+#         return model
+
+# # --- UI Aplikasi ---
+
+# st.title("🏠 House Pricing Prediction App")
+# st.markdown("Source by Rumah123.com | Proyek Machine Learning")
+
+# DATA_PATH = 'data_final.csv'
+# MODEL_PATH = 'model_prediksi_final_fix.joblib'
+
+# # Panggil fungsi utama untuk mendapatkan model (melatih atau memuat)
+# model_pipeline = train_and_get_model(MODEL_PATH, DATA_PATH)
+# raw_df = load_data(DATA_PATH)
+
+# # --- Sidebar untuk Input ---
+# with st.sidebar:
+#     st.header("📝 Masukkan Detail Properti")
+    
+#     if raw_df is None:
+#         st.error(f"File data '{DATA_PATH}' tidak ditemukan.")
+#     else:
+#         with st.form(key='prediction_form'):
+#             raw_df['Kota'] = raw_df['Kota'].apply(lambda x: 'Jakarta' if isinstance(x, str) and 'Jakarta' in x else x)
+            
+#             kota_options = sorted(raw_df['Kota'].dropna().unique())
+#             sertifikat_options = sorted(raw_df['Sertifikat'].dropna().unique())
+#             kondisi_options = sorted(raw_df['Kondisi Properti'].dropna().unique())
+
+#             kota = st.selectbox("Kota", options=kota_options)
+#             kamar_tidur = st.slider("Kamar Tidur", 1, 10, 3)
+#             kamar_mandi = st.slider("Kamar Mandi", 1, 10, 2)
+            
+#             # --- PERUBAHAN: Menambahkan input untuk kamar pembantu ---
+#             kamar_tidur_pembantu = st.slider("Kamar Tidur Pembantu", 0, 5, 0)
+#             kamar_mandi_pembantu = st.slider("Kamar Mandi Pembantu", 0, 5, 0)
+#             # ---------------------------------------------------------
+
+#             luas_tanah = st.number_input("Luas Tanah (m²)", min_value=30, value=120)
+#             luas_bangunan = st.number_input("Luas Bangunan (m²)", min_value=30, value=100)
+#             jumlah_lantai = st.slider("Jumlah Lantai", 1, 5, 1)
+#             carport = st.slider("Carport (mobil)", 0, 10, 1)
+#             garasi = st.slider("Garasi (mobil)", 0, 10, 0)
+#             daya_listrik = st.number_input("Daya Listrik (VA)", min_value=900, value=2200, step=100)
+#             sertifikat = st.selectbox("Sertifikat", options=sertifikat_options)
+#             kondisi_properti = st.selectbox("Kondisi Properti", options=kondisi_options)
+
+#             submit_button = st.form_submit_button(label='✨ Prediksi Harga')
+
+# # --- Tampilan Utama ---
+# if model_pipeline is None:
+#     st.error(f"Gagal melatih atau memuat model. Periksa file data dan log.")
+# elif submit_button:
+#     with st.spinner('Model sedang menganalisis...'):
+#         time.sleep(1)
+        
+#         # --- PERUBAHAN: Menambahkan kolom baru ke input_data ---
+#         input_data = pd.DataFrame([{
+#             'Kamar Tidur': kamar_tidur, 'Kamar Mandi': kamar_mandi,
+#             'Luas Tanah': luas_tanah, 'Luas Bangunan': luas_bangunan,
+#             'Jumlah Lantai': jumlah_lantai, 'Carport': carport,
+#             'Garasi': garasi, 'Daya Listrik': daya_listrik,
+#             'Sertifikat': sertifikat, 'Kondisi Properti': kondisi_properti,
+#             'Kota': kota,
+#             'Kamar Tidur Pembantu': kamar_tidur_pembantu,
+#             'Kamar Mandi Pembantu': kamar_mandi_pembantu
+#         }])
+#         # ----------------------------------------------------
+
+#         prediction_log = model_pipeline.predict(input_data)
+#         prediction_final = np.expm1(prediction_log[0])
+
+#         st.subheader("Estimasi Harga Sewa Tahunan")
+#         st.metric(label="Harga Prediksi", value=f"Rp {prediction_final:,.0f}")
+#         st.info("Prediksi ini dibuat menggunakan model LightGBM.", icon="💡")
+# else:
+#     st.info("Silakan isi formulir di sidebar dan klik tombol prediksi untuk melihat hasilnya.")
 
 
 
@@ -517,6 +728,7 @@ else:
 #     st.error("Gagal memuat file data.")
 
     
+
 
 
 
