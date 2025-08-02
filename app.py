@@ -43,7 +43,7 @@ st.title("🏠 House Pricing Prediction App")
 st.markdown("Source by Rumah123.com | Proyek Machine Learning")
 
 DATA_PATH = 'database_sewa_rumah_fix - database_sewa_rumahfix.csv.csv'
-MODEL_PATH = 'model_prediksi_sewa.joblib'
+MODEL_PATH = 'model_prediksi_sewa_final.joblib'
 
 # Muat data dan model
 raw_df = load_data(DATA_PATH)
@@ -314,3 +314,4 @@ if raw_df is not None and model_pipeline is not None:
 #     st.error("Gagal memuat file data.")
 
     
+
