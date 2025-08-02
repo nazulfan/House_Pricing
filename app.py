@@ -38,7 +38,7 @@ st.markdown("Aplikasi ini menggunakan model Machine Learning (LightGBM) untuk es
 
 # Path ke file
 DATA_PATH = 'database_sewa_rumah_fix - database_sewa_rumahfix.csv.csv'
-MODEL_PATH = 'model_prediksi_sewa.joblib' # Menggunakan model final tunggal
+MODEL_PATH = 'model_prediksi_sewa_final.joblib' # Menggunakan model final tunggal
 
 # Muat semua aset
 raw_df = load_data(DATA_PATH)
@@ -303,6 +303,7 @@ else:
 #     st.error("Gagal memuat file data.")
 
     
+
 
 
 
