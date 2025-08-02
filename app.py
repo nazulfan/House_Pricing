@@ -6,7 +6,7 @@ import time
 
 # --- Konfigurasi Halaman ---
 st.set_page_config(
-    page_title="Prediksi Harga Sewa Properti",
+    page_title="Prediksi Harga (LightGBM)",
     page_icon="🏠",
     layout="centered", # Menggunakan layout centered untuk stabilitas
     initial_sidebar_state="expanded"
@@ -15,7 +15,7 @@ st.set_page_config(
 # --- Fungsi Bantuan ---
 @st.cache_data
 def load_data(file_path):
-    """Memuat data mentah dari CSV."""
+    """Memuat data mentah untuk opsi UI."""
     try:
         df = pd.read_csv(file_path)
         return df
@@ -24,21 +24,22 @@ def load_data(file_path):
 
 @st.cache_resource
 def load_model(model_path):
-    """Memuat pipeline model tunggal yang sudah dilatih."""
+    """Memuat pipeline model yang sudah dilatih."""
     try:
         model = joblib.load(model_path)
         return model
-    except FileNotFoundError:
+    except Exception as e:
+        st.error(f"Gagal memuat model: {e}")
         return None
 
 # --- UI Aplikasi ---
 
-st.title("🏠 Prediksi Harga Sewa Properti")
-st.markdown("Aplikasi ini menggunakan model Machine Learning (LightGBM) untuk estimasi harga.")
+st.title("🏠 Prediksi Harga Rumah (LightGBM)")
+st.markdown("Aplikasi ini menggunakan model LightGBM untuk estimasi harga sewa.")
 
 # Path ke file
 DATA_PATH = 'database_sewa_rumah_fix - database_sewa_rumahfix.csv.csv'
-MODEL_PATH = 'model_prediksi_sewa_final.joblib' # Menggunakan model final tunggal
+MODEL_PATH = 'model_prediksi_sewa_final.joblib' # <-- MENGGUNAKAN MODEL LIGHTGBM
 
 # Muat semua aset
 raw_df = load_data(DATA_PATH)
@@ -52,6 +53,9 @@ with st.sidebar:
         st.error(f"File data '{DATA_PATH}' tidak ditemukan.")
     else:
         with st.form(key='prediction_form'):
+            # Gabungkan area Jakarta di opsi dropdown
+            raw_df['Kota'] = raw_df['Kota'].apply(lambda x: 'Jakarta' if isinstance(x, str) and 'Jakarta' in x else x)
+            
             kota_options = sorted(raw_df['Kota'].dropna().unique())
             sertifikat_options = sorted(raw_df['Sertifikat'].dropna().unique())
             kondisi_options = sorted(raw_df['Kondisi Properti'].dropna().unique())
@@ -72,12 +76,11 @@ with st.sidebar:
 
 # --- Tampilan Utama ---
 if model_pipeline is None:
-    st.error(f"File model '{MODEL_PATH}' tidak ditemukan. Pastikan file model sudah benar.")
+    st.error(f"File model '{MODEL_PATH}' tidak ditemukan. Pastikan file ini ada di repositori Anda.")
 elif submit_button:
     with st.spinner('Model sedang menganalisis...'):
         time.sleep(1)
         
-        # Buat DataFrame input
         input_data = pd.DataFrame([{
             'Kamar Tidur': kamar_tidur, 'Kamar Mandi': kamar_mandi,
             'Luas Tanah': luas_tanah, 'Luas Bangunan': luas_bangunan,
@@ -87,15 +90,18 @@ elif submit_button:
             'Kota': kota
         }])
 
-        # Langsung gunakan pipeline model tunggal untuk prediksi
+        # Gunakan pipeline untuk memprediksi
         prediction_log = model_pipeline.predict(input_data)
-        prediction_final = np.expm1(prediction_log)[0]
+
+        # Kembalikan ke skala Rupiah
+        prediction_final = np.expm1(prediction_log[0])
 
         st.subheader("Estimasi Harga Sewa Tahunan")
         st.metric(label="Harga Prediksi", value=f"Rp {prediction_final:,.0f}")
-        st.info("Prediksi ini dibuat menggunakan model umum yang dilatih pada seluruh data.", icon="💡")
+        st.info("Prediksi ini dibuat menggunakan model LightGBM.", icon="💡")
 else:
     st.info("Silakan isi formulir di sidebar dan klik tombol prediksi untuk melihat hasilnya.")
+
 
 
 
@@ -303,6 +309,7 @@ else:
 #     st.error("Gagal memuat file data.")
 
     
+
 
 
 
