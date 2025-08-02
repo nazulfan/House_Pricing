@@ -109,7 +109,7 @@ def train_and_get_model(model_path, data_path):
 st.title("🏠 Prediksi Harga Rumah (LightGBM)")
 st.markdown("Aplikasi ini menggunakan model LightGBM untuk estimasi harga sewa.")
 
-DATA_PATH = 'data_final.csv'
+DATA_PATH = 'data_fix.csv'
 MODEL_PATH = 'model_prediksi_final_fix.joblib'
 
 # Panggil fungsi utama untuk mendapatkan model (melatih atau memuat)
@@ -516,6 +516,7 @@ else:
 #     st.error("Gagal memuat file data.")
 
     
+
 
 
 
