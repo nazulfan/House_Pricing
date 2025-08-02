@@ -95,6 +95,32 @@ def train_and_get_model(model_path, data_path):
         model = joblib.load(model_path)
         return model
 
+# Fungsi untuk mengekstrak dan menampilkan feature importance
+@st.cache_data
+def get_feature_importance(_pipeline):
+    """Mengekstrak feature importance dari pipeline yang sudah dilatih."""
+    try:
+        preprocessor = _pipeline.named_steps['preprocessor']
+        regressor = _pipeline.named_steps['regressor']
+
+        # Dapatkan nama fitur setelah one-hot encoding
+        ohe_feature_names = preprocessor.named_transformers_['cat']['onehot'].get_feature_names_out()
+        
+        # Gabungkan dengan nama fitur numerik
+        numeric_features = preprocessor.transformers_[0][2]
+        all_feature_names = np.concatenate([numeric_features, ohe_feature_names])
+        
+        # Buat DataFrame
+        importance_df = pd.DataFrame({
+            'Fitur': all_feature_names,
+            'Pentingnya': regressor.feature_importances_
+        }).sort_values(by='Pentingnya', ascending=False)
+        
+        return importance_df
+    except Exception as e:
+        return pd.DataFrame({'Fitur': [], 'Pentingnya': []})
+
+
 # --- UI Aplikasi ---
 
 st.title("🏠 House Pricing Prediction App")
@@ -115,7 +141,6 @@ with st.sidebar:
         st.error(f"File data '{DATA_PATH}' tidak ditemukan.")
     else:
         with st.form(key='prediction_form'):
-            # --- PERUBAHAN: Menghapus pengelompokan Jakarta ---
             kota_options = sorted(raw_df['Kota'].dropna().unique())
             sertifikat_options = sorted(raw_df['Sertifikat'].dropna().unique())
             kondisi_options = sorted(raw_df['Kondisi Properti'].dropna().unique())
@@ -123,10 +148,8 @@ with st.sidebar:
             kota = st.selectbox("Kota", options=kota_options)
             kamar_tidur = st.slider("Kamar Tidur", 1, 10, 3)
             kamar_mandi = st.slider("Kamar Mandi", 1, 10, 2)
-            
             kamar_tidur_pembantu = st.slider("Kamar Tidur Pembantu", 0, 5, 0)
             kamar_mandi_pembantu = st.slider("Kamar Mandi Pembantu", 0, 5, 0)
-
             luas_tanah = st.number_input("Luas Tanah (m²)", min_value=30, value=120)
             luas_bangunan = st.number_input("Luas Bangunan (m²)", min_value=30, value=100)
             jumlah_lantai = st.slider("Jumlah Lantai", 1, 5, 1)
@@ -142,68 +165,73 @@ with st.sidebar:
 if model_pipeline is None:
     st.error(f"Gagal melatih atau memuat model. Periksa file data dan log.")
 else:
-    col1, col2 = st.columns([1.5, 2])
+    st.subheader("Estimasi Harga Sewa Tahunan")
+    
+    # Placeholder untuk hasil prediksi
+    result_placeholder = st.empty()
 
-    with col1:
-        st.subheader("Estimasi Harga Sewa Tahunan")
-        if submit_button:
-            with st.spinner('Model sedang menganalisis...'):
-                time.sleep(1)
-                
-                input_data = pd.DataFrame([{
-                    'Kamar Tidur': kamar_tidur, 'Kamar Mandi': kamar_mandi,
-                    'Luas Tanah': luas_tanah, 'Luas Bangunan': luas_bangunan,
-                    'Jumlah Lantai': jumlah_lantai, 'Carport': carport,
-                    'Garasi': garasi, 'Daya Listrik': daya_listrik,
-                    'Sertifikat': sertifikat, 'Kondisi Properti': kondisi_properti,
-                    'Kota': kota,
-                    'Kamar Tidur Pembantu': kamar_tidur_pembantu,
-                    'Kamar Mandi Pembantu': kamar_mandi_pembantu
-                }])
-
-                prediction_log = model_pipeline.predict(input_data)
-                prediction_final = np.expm1(prediction_log[0])
-
-                st.metric(label="Harga Prediksi", value=f"Rp {prediction_final:,.0f}")
-                st.info("Prediksi ini dibuat menggunakan model LightGBM.", icon="💡")
-        else:
-            st.info("Silakan isi formulir di sidebar dan klik tombol prediksi untuk melihat hasilnya.")
-        
-        with st.container(border=True):
-            st.subheader("Tentang Model")
-            st.markdown("""
-            - **Model**: LightGBM (Gradient Boosting)
-            - **Akurasi (R²)**: ~0.70
-            - **Fitur**: 13 fitur properti
-            - **Data**: Dilatih pada ribuan data sewa properti dari berbagai kota besar di Indonesia.
-            """)
-
-    with col2:
-        if raw_df is not None:
-            st.subheader("Perbandingan Harga Rata-Rata per Kota")
+    if submit_button:
+        with st.spinner('Model sedang menganalisis...'):
+            time.sleep(1)
             
-            # --- PERUBAHAN: Menghapus pengelompokan Jakarta untuk visualisasi ---
-            # (Tidak ada perubahan kode yang diperlukan di sini karena raw_df digunakan langsung)
+            input_data = pd.DataFrame([{
+                'Kamar Tidur': kamar_tidur, 'Kamar Mandi': kamar_mandi,
+                'Luas Tanah': luas_tanah, 'Luas Bangunan': luas_bangunan,
+                'Jumlah Lantai': jumlah_lantai, 'Carport': carport,
+                'Garasi': garasi, 'Daya Listrik': daya_listrik,
+                'Sertifikat': sertifikat, 'Kondisi Properti': kondisi_properti,
+                'Kota': kota,
+                'Kamar Tidur Pembantu': kamar_tidur_pembantu,
+                'Kamar Mandi Pembantu': kamar_mandi_pembantu
+            }])
+
+            prediction_log = model_pipeline.predict(input_data)
+            prediction_final = np.expm1(prediction_log[0])
+
+            result_placeholder.metric(label="Harga Prediksi", value=f"Rp {prediction_final:,.0f}")
+    else:
+        result_placeholder.info("Silakan isi formulir di sidebar dan klik tombol prediksi untuk melihat hasilnya.")
+    
+    st.markdown("---")
+
+    # --- TABS UNTUK VISUALISASI TAMBAHAN ---
+    tab1, tab2, tab3 = st.tabs(["📊 Analisis Pasar", "🧠 Faktor Penentu Harga", "⚙️ Tentang Model"])
+
+    with tab1:
+        st.subheader("Perbandingan Harga Rata-Rata per Kota")
+        if raw_df is not None:
             avg_price_by_city = raw_df.groupby('Kota')['Harga Sewa'].mean().sort_values(ascending=False).head(10)
             avg_price_by_city_df = avg_price_by_city.reset_index()
             avg_price_by_city_df.columns = ['Kota', 'Harga Rata-Rata']
 
-            # Buat diagram batang dengan Plotly
             fig = px.bar(
-                avg_price_by_city_df,
-                x='Harga Rata-Rata',
-                y='Kota',
-                orientation='h',
-                title='Top 10 Harga Sewa Rata-Rata per Kota',
-                labels={'Harga Rata-Rata': 'Harga Rata-Rata (Rp)', 'Kota': 'Kota'},
-                text_auto='.2s'
+                avg_price_by_city_df, x='Harga Rata-Rata', y='Kota', orientation='h',
+                title='Top 10 Harga Sewa Rata-Rata per Kota', text_auto='.2s'
             )
-            fig.update_layout(
-                yaxis={'categoryorder':'total ascending'},
-                title_x=0.5
-            )
-            fig.update_traces(marker_color='#2563EB', textposition='outside')
+            fig.update_layout(yaxis={'categoryorder':'total ascending'}, title_x=0.5)
             st.plotly_chart(fig, use_container_width=True)
+
+    with tab2:
+        st.subheader("Fitur Paling Berpengaruh Terhadap Harga")
+        feature_importance_df = get_feature_importance(model_pipeline)
+        
+        fig_imp = px.bar(
+            feature_importance_df.head(10),
+            x='Pentingnya', y='Fitur', orientation='h',
+            title='Top 10 Faktor Penentu Harga', text_auto=True
+        )
+        fig_imp.update_layout(yaxis={'categoryorder':'total ascending'}, title_x=0.5)
+        st.plotly_chart(fig_imp, use_container_width=True)
+
+    with tab3:
+        st.subheader("Detail Teknis Model")
+        st.markdown("""
+        Aplikasi ini ditenagai oleh sebuah model machine learning yang telah dilatih untuk mengenali pola dari ribuan data properti.
+        - **Model**: LightGBM (Light Gradient Boosting Machine)
+        - **Akurasi (R² Score)**: Sekitar 0.70 (artinya model dapat menjelaskan ~70% variasi harga).
+        - **Proses**: Model dilatih secara otomatis saat aplikasi pertama kali dijalankan, memastikan ia selalu menggunakan data dan versi pustaka yang paling sesuai.
+        """)
+
 
 
 
@@ -729,6 +757,7 @@ else:
 #     st.error("Gagal memuat file data.")
 
     
+
 
 
 
