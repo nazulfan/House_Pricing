@@ -39,7 +39,7 @@ st.markdown("Source by Rumah123.com | Proyek Machine Learning")
 
 # Path ke file
 DATA_PATH = 'database_sewa_rumah_fix - database_sewa_rumahfix.csv.csv'
-MODEL_PATH = 'model_prediksi_sewa_final.joblib' # <-- MENGGUNAKAN MODEL LIGHTGBM
+MODEL_PATH = 'model_prediksi_sewa.joblib' # <-- MENGGUNAKAN MODEL LIGHTGBM
 
 # Muat semua aset
 raw_df = load_data(DATA_PATH)
@@ -309,6 +309,7 @@ else:
 #     st.error("Gagal memuat file data.")
 
     
+
 
 
 
