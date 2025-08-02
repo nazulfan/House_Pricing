@@ -1,7 +1,8 @@
 streamlit
-pandas
+pandas==2.0.3
 numpy
 scikit-learn==1.3.0
 joblib==1.3.2
-lightgbm
+lightgbm==4.1.0
+
 
