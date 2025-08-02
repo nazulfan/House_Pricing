@@ -1,3 +1,4 @@
+# Versi final aplikasi
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -503,6 +504,7 @@ else:
 #     st.error("Gagal memuat file data.")
 
     
+
 
 
 
